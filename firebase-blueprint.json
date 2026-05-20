@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "Book": {
+      "title": "Book",
+      "description": "A reading material entry",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the book" },
+        "authorName": { "type": "string", "description": "Name of the author" },
+        "status": { 
+          "type": "string", 
+          "enum": ["want-to-read", "reading", "read", "dnf"],
+          "description": "Reading status" 
+        },
+        "genre": { "type": "string", "description": "Genre of the book" },
+        "series": { "type": "string", "description": "Series the book belongs to" },
+        "seriesPosition": { "type": "string", "description": "Position in the series" },
+        "isbn": { "type": "string", "description": "ISBN or ASIN of the book" },
+        "pages": { "type": "integer", "description": "Number of pages" },
+        "rating": { "type": "integer", "description": "Rating from 1 to 5" },
+        "liked": { "type": "boolean", "description": "Whether the user liked the book" },
+        "boredomReason": { "type": "string", "description": "Reason for DNF if bored" },
+        "notes": { "type": "string", "description": "Personal notes" },
+        "coverUrl": { "type": "string", "description": "URL of the front cover image" },
+        "backCoverUrl": { "type": "string", "description": "URL of the back cover image" },
+        "userId": { "type": "string", "description": "ID of the user who owns this record" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "authorName", "status", "userId", "createdAt", "updatedAt"]
+    },
+    "Author": {
+      "title": "Author",
+      "description": "An author entry",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the author" },
+        "liked": { "type": "boolean", "description": "Whether the user likes this author" },
+        "notes": { "type": "string", "description": "General notes about the author" },
+        "userId": { "type": "string", "description": "ID of the user who owns this record" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "userId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/books/{bookId}": {
+      "schema": "Book",
+      "description": "Collection of books"
+    },
+    "/authors/{authorId}": {
+      "schema": "Author",
+      "description": "Collection of authors"
+    }
+  }
+}

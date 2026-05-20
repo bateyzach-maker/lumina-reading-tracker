@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+}
+
+@layer base {
+  body {
+    @apply bg-[#F5F5F7] text-[#1D1D1F] font-sans transition-colors duration-300;
+  }
+  .dark body {
+    @apply bg-[#0A0A0A] text-[#E0E0E0];
+  }
+}
+
+.mac-sidebar {
+  @apply bg-white border-r border-neutral-200 transition-all duration-300;
+}
+.dark .mac-sidebar {
+  @apply bg-[#121212] border-neutral-800;
+}
+
+.mac-card {
+  @apply bg-white border border-neutral-200 shadow-xl rounded-xl overflow-hidden transition-all duration-300;
+}
+.dark .mac-card {
+  @apply bg-[#1a1a1a] border-neutral-800 shadow-2xl;
+}
+
+.mac-card:hover {
+  @apply border-neutral-300 shadow-[0_0_20px_rgba(0,0,0,0.05)];
+}
+.dark .mac-card:hover {
+  @apply border-neutral-700 shadow-[0_0_20px_rgba(255,255,255,0.05)];
+}
+
+.mac-button-primary {
+  @apply bg-black text-white px-6 py-2 rounded-full font-semibold transition-all hover:bg-neutral-800 active:scale-95 disabled:opacity-50;
+}
+.dark .mac-button-primary {
+  @apply bg-white text-black hover:bg-neutral-200;
+}
+
+.mac-button-secondary {
+  @apply bg-transparent text-black border border-neutral-300 px-6 py-2 rounded-full font-semibold transition-all hover:bg-neutral-100 active:scale-95 disabled:opacity-50;
+}
+.dark .mac-button-secondary {
+  @apply text-white border-neutral-700 hover:bg-neutral-800;
+}
+
+.mac-input {
+  @apply bg-white border border-neutral-200 text-black rounded-lg px-4 py-2 outline-none focus:border-neutral-400 transition-all placeholder:text-neutral-400;
+}
+.dark .mac-input {
+  @apply bg-neutral-900 border-neutral-800 text-[#E0E0E0] focus:border-neutral-600 placeholder:text-neutral-600;
+}
+
+.serif-italic {
+  @apply font-serif italic;
+}
+
+.bookshelf-row {
+  @apply relative pt-6 pb-12 mb-12 border-b-4 border-neutral-900;
+}
+
+.bookshelf-title {
+  @apply text-[10px] font-bold uppercase tracking-[0.4em] text-neutral-600 mb-8 block px-2;
+}
+
+.shelf-base {
+  @apply absolute bottom-8 left-0 right-0 h-4 bg-neutral-900 rounded shadow-[0_10px_20px_rgba(0,0,0,0.5)];
+}
