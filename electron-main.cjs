@@ -8,26 +8,38 @@ app.disableHardwareAcceleration();
 
 let server;
 
-function getGeminiApiKey() {
+function getClaudeApiKey() {
   try {
     const configPath = path.join(app.getPath('userData'), 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    return config.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    return config.claudeApiKey || process.env.CLAUDE_API_KEY || '';
   } catch {
-    return process.env.GEMINI_API_KEY || '';
+    return process.env.CLAUDE_API_KEY || '';
   }
 }
 
-async function geminiRequest(apiKey, model, payload) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
+async function claudeRequest(apiKey, systemPrompt, userPrompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-7',
+      max_tokens: 8192,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'high' },
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
   });
-  if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Claude API error ${res.status}: ${await res.text()}`);
   const data = await res.json();
-  return JSON.parse(data.candidates[0].content.parts[0].text);
+  const textBlock = data.content.find(b => b.type === 'text');
+  if (!textBlock) throw new Error('No text block in Claude response');
+  return JSON.parse(textBlock.text);
 }
 
 function startLocalServer() {
@@ -38,7 +50,7 @@ function startLocalServer() {
 
   expressApp.post('/api/recommendations', async (req, res) => {
     try {
-      const apiKey = getGeminiApiKey();
+      const apiKey = getClaudeApiKey();
       if (!apiKey) return res.status(200).json([]);
 
       const { likedBooks, dislikedBooks, likedAuthors, dislikedAuthors } = req.body;
@@ -47,7 +59,9 @@ function startLocalServer() {
       const likedAuthorsStr = likedAuthors.map(a => a.name).join(', ');
       const dislikedAuthorsStr = dislikedAuthors.map(a => a.name).join(', ');
 
-      const prompt = `
+      const systemPrompt = `You are a book recommendation expert. Respond with raw JSON only — no markdown fences, no explanation text, just a valid JSON array.`;
+
+      const userPrompt = `
         I am a reader looking for new book recommendations.
 
         Books I've enjoyed: ${likedBooksStr || 'None listed yet'}
@@ -55,33 +69,14 @@ function startLocalServer() {
         Authors I strongly admire (Liked Authors): ${likedAuthorsStr || 'None listed yet'}
         Authors I don't like: ${dislikedAuthorsStr || 'None listed yet'}
 
-        Based on my preferences, please recommend 5 books I might enjoy.
-        IMPORTANT: If I have liked authors, please prioritize recommending other books by them that I haven't read, or books that are very similar in style to theirs.
+        Based on my preferences, recommend 5 books I might enjoy.
+        IMPORTANT: If I have liked authors, prioritize recommending other books by them that I haven't read, or books very similar in style to theirs.
+        Explicitly mention in your reasoning if a book is recommended because it's by an author I like or similar to an author I like.
 
-        In your reasoning, explicitly mention if a book is recommended because it's by an author I like or similar to an author I like.
-
-        Explain why you are recommending each one based on my specific tastes.
+        Respond with a JSON array only. Each element must have: title (string), author (string), reason (string).
       `;
 
-      const result = await geminiRequest(apiKey, 'gemini-3-flash-preview', {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: {
-                title: { type: 'STRING' },
-                author: { type: 'STRING' },
-                reason: { type: 'STRING' },
-              },
-              required: ['title', 'author', 'reason'],
-            },
-          },
-        },
-      });
-
+      const result = await claudeRequest(apiKey, systemPrompt, userPrompt);
       res.status(200).json(result);
     } catch (error) {
       console.error('Recommendations error:', error);
@@ -91,47 +86,33 @@ function startLocalServer() {
 
   expressApp.post('/api/check-releases', async (req, res) => {
     try {
-      const apiKey = getGeminiApiKey();
+      const apiKey = getClaudeApiKey();
       if (!apiKey) return res.status(200).json([]);
 
       const { authors, series } = req.body;
       const authorNames = authors.slice(0, 10).map(a => a.name).join(', ');
       const seriesNames = series.slice(0, 10).join(', ');
 
-      const prompt = `
+      const systemPrompt = `You are a knowledgeable literary assistant. Respond with raw JSON only — no markdown fences, no explanation text, just a valid JSON array.`;
+
+      const userPrompt = `
         Current date: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
 
-        Please search for and identify any REAL upcoming or recently released book releases for the following authors and book series.
+        Identify any upcoming or recently released books for these authors and series, using your knowledge.
 
         Authors: ${authorNames}
         Series: ${seriesNames}
 
-        Return a list of discovered releases with the message: "A new work titled '[Book Title]' from [Author] is materializing soon (Release: [Date])."
+        Return a JSON array of release notifications. Each element must have:
+        - id (string): a unique identifier (e.g. "release-1")
+        - message (string): formatted as "A new work titled '[Book Title]' from [Author] is materializing soon (Release: [Date])."
+        - date (string): the release date or approximate timeframe
+        - type (string): either "release" or "milestone"
 
-        If no specific new releases are found, do not hallucinate; instead, suggest a book that is often associated with these authors/series that might be a "hidden gem" recently discussed in literary circles.
+        If no specific new releases are known, suggest books often associated with these authors/series that might be hidden gems. Do not fabricate release dates — use "TBD" if unknown.
       `;
 
-      const result = await geminiRequest(apiKey, 'gemini-3-flash-preview', {
-        contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ googleSearch: {} }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: {
-                id: { type: 'STRING' },
-                message: { type: 'STRING' },
-                date: { type: 'STRING' },
-                type: { type: 'STRING', enum: ['release', 'milestone'] },
-              },
-              required: ['id', 'message', 'date', 'type'],
-            },
-          },
-        },
-      });
-
+      const result = await claudeRequest(apiKey, systemPrompt, userPrompt);
       res.status(200).json(result);
     } catch (error) {
       console.error('Check releases error:', error);

@@ -1,22 +1,22 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from 'url';
-import { GoogleGenAI, Type } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Gemini Initialization
-let genAIInstance: GoogleGenAI | null = null;
-function getGenAI() {
-  if (!genAIInstance) {
-    const apiKey = process.env.GEMINI_API_KEY;
+// Claude Initialization
+let anthropicInstance: Anthropic | null = null;
+function getAnthropic() {
+  if (!anthropicInstance) {
+    const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not defined in environment variables.");
+      throw new Error("CLAUDE_API_KEY is not defined in environment variables.");
     }
-    genAIInstance = new GoogleGenAI({ apiKey });
+    anthropicInstance = new Anthropic({ apiKey });
   }
-  return genAIInstance;
+  return anthropicInstance;
 }
 
 async function startServer() {
@@ -24,7 +24,7 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
-  
+
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", env: process.env.NODE_ENV });
@@ -33,53 +33,44 @@ async function startServer() {
   app.post("/api/recommendations", async (req, res) => {
     try {
       const { likedBooks, dislikedBooks, likedAuthors, dislikedAuthors } = req.body;
-      const genAI = getGenAI();
-      const model = "gemini-3-flash-preview";
-      
+      const client = getAnthropic();
+
       const likedBooksStr = likedBooks.map((b: any) => `${b.title} by ${b.authorName}`).join(', ');
       const dislikedBooksStr = dislikedBooks.map((b: any) => `${b.title} by ${b.authorName}`).join(', ');
       const likedAuthorsStr = likedAuthors.map((a: any) => a.name).join(', ');
       const dislikedAuthorsStr = dislikedAuthors.map((a: any) => a.name).join(', ');
 
-      const prompt = `
-        I am a reader looking for new book recommendations.
-        
-        Books I've enjoyed: ${likedBooksStr || 'None listed yet'}
-        Books I didn't like or got bored of: ${dislikedBooksStr || 'None listed yet'}
-        Authors I strongly admire (Liked Authors): ${likedAuthorsStr || 'None listed yet'}
-        Authors I don't like: ${dislikedAuthorsStr || 'None listed yet'}
-        
-        Based on my preferences, please recommend 5 books I might enjoy. 
-        IMPORTANT: If I have liked authors, please prioritize recommending other books by them that I haven't read, or books that are very similar in style to theirs.
-        
-        In your reasoning, explicitly mention if a book is recommended because it's by an author I like or similar to an author I like.
-        
-        Explain why you are recommending each one based on my specific tastes.
-      `;
+      const message = await client.messages.create({
+        model: "claude-opus-4-7",
+        max_tokens: 8192,
+        thinking: { type: "adaptive" },
+        output_config: { effort: "high" },
+        system: "You are a book recommendation expert. Respond with raw JSON only — no markdown fences, no explanation text, just a valid JSON array.",
+        messages: [{
+          role: "user",
+          content: `
+            I am a reader looking for new book recommendations.
 
-      const response = await genAI.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                author: { type: Type.STRING },
-                reason: { type: Type.STRING },
-              },
-              required: ["title", "author", "reason"]
-            }
-          }
-        }
-      });
+            Books I've enjoyed: ${likedBooksStr || 'None listed yet'}
+            Books I didn't like or got bored of: ${dislikedBooksStr || 'None listed yet'}
+            Authors I strongly admire (Liked Authors): ${likedAuthorsStr || 'None listed yet'}
+            Authors I don't like: ${dislikedAuthorsStr || 'None listed yet'}
 
-      res.status(200).json(JSON.parse(response.text));
+            Based on my preferences, recommend 5 books I might enjoy.
+            IMPORTANT: If I have liked authors, prioritize recommending other books by them that I haven't read, or books very similar in style to theirs.
+            Explicitly mention in your reasoning if a book is recommended because it's by an author I like or similar to an author I like.
+
+            Respond with a JSON array only. Each element must have: title (string), author (string), reason (string).
+          `
+        }]
+      } as any);
+
+      const textBlock = message.content.find(b => b.type === "text") as Anthropic.TextBlock | undefined;
+      if (!textBlock) throw new Error("No text block in Claude response");
+
+      res.status(200).json(JSON.parse(textBlock.text));
     } catch (error: any) {
-      console.error("Gemini API Route Error:", error);
+      console.error("Claude API Route Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -87,50 +78,44 @@ async function startServer() {
   app.post("/api/check-releases", async (req, res) => {
     try {
       const { authors, series } = req.body;
-      const genAI = getGenAI();
-      const model = "gemini-3-flash-preview";
-      
+      const client = getAnthropic();
+
       const authorNames = authors.slice(0, 10).map((a: any) => a.name).join(", ");
       const seriesNames = series.slice(0, 10).join(", ");
 
-      const prompt = `
-        Current date: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
-        
-        Please search for and identify any REAL upcoming or recently released book releases for the following authors and book series.
-        
-        Authors: ${authorNames}
-        Series: ${seriesNames}
-        
-        Return a list of discovered releases with the message: "A new work titled '[Book Title]' from [Author] is materializing soon (Release: [Date])."
-        
-        If no specific new releases are found, do not hallucinate; instead, suggest a book that is often associated with these authors/series that might be a "hidden gem" recently discussed in literary circles.
-      `;
+      const message = await client.messages.create({
+        model: "claude-opus-4-7",
+        max_tokens: 8192,
+        thinking: { type: "adaptive" },
+        output_config: { effort: "high" },
+        system: "You are a knowledgeable literary assistant. Respond with raw JSON only — no markdown fences, no explanation text, just a valid JSON array.",
+        messages: [{
+          role: "user",
+          content: `
+            Current date: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
 
-      const response = await genAI.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                message: { type: Type.STRING },
-                date: { type: Type.STRING },
-                type: { type: Type.STRING, enum: ["release", "milestone"] }
-              },
-              required: ["id", "message", "date", "type"]
-            }
-          }
-        }
-      });
+            Identify any upcoming or recently released books for these authors and series, using your knowledge.
 
-      res.status(200).json(JSON.parse(response.text));
+            Authors: ${authorNames}
+            Series: ${seriesNames}
+
+            Return a JSON array of release notifications. Each element must have:
+            - id (string): a unique identifier (e.g. "release-1")
+            - message (string): formatted as "A new work titled '[Book Title]' from [Author] is materializing soon (Release: [Date])."
+            - date (string): the release date or approximate timeframe
+            - type (string): either "release" or "milestone"
+
+            If no specific new releases are known, suggest books often associated with these authors/series that might be hidden gems. Do not fabricate release dates — use "TBD" if unknown.
+          `
+        }]
+      } as any);
+
+      const textBlock = message.content.find(b => b.type === "text") as Anthropic.TextBlock | undefined;
+      if (!textBlock) throw new Error("No text block in Claude response");
+
+      res.status(200).json(JSON.parse(textBlock.text));
     } catch (error: any) {
-      console.error("Gemini Releases Route Error:", error);
+      console.error("Claude API Route Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
