@@ -54,8 +54,8 @@ function startLocalServer() {
       if (!apiKey) return res.status(200).json([]);
 
       const { likedBooks, dislikedBooks, likedAuthors, dislikedAuthors } = req.body;
-      const likedBooksStr = likedBooks.map(b => `${b.title} by ${b.authorName}`).join(', ');
-      const dislikedBooksStr = dislikedBooks.map(b => `${b.title} by ${b.authorName}`).join(', ');
+      const likedBooksStr = likedBooks.map(b => `${b.title} by ${b.authorName}${b.rating ? ` (${b.rating}/5 stars)` : ''}`).join(', ');
+      const dislikedBooksStr = dislikedBooks.map(b => `${b.title} by ${b.authorName}${b.rating ? ` (${b.rating}/5 stars)` : ''}`).join(', ');
       const likedAuthorsStr = likedAuthors.map(a => a.name).join(', ');
       const dislikedAuthorsStr = dislikedAuthors.map(a => a.name).join(', ');
 

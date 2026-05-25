@@ -35,8 +35,8 @@ async function startServer() {
       const { likedBooks, dislikedBooks, likedAuthors, dislikedAuthors } = req.body;
       const client = getAnthropic();
 
-      const likedBooksStr = likedBooks.map((b: any) => `${b.title} by ${b.authorName}`).join(', ');
-      const dislikedBooksStr = dislikedBooks.map((b: any) => `${b.title} by ${b.authorName}`).join(', ');
+      const likedBooksStr = likedBooks.map((b: any) => `${b.title} by ${b.authorName}${b.rating ? ` (${b.rating}/5 stars)` : ''}`).join(', ');
+      const dislikedBooksStr = dislikedBooks.map((b: any) => `${b.title} by ${b.authorName}${b.rating ? ` (${b.rating}/5 stars)` : ''}`).join(', ');
       const likedAuthorsStr = likedAuthors.map((a: any) => a.name).join(', ');
       const dislikedAuthorsStr = dislikedAuthors.map((a: any) => a.name).join(', ');
 

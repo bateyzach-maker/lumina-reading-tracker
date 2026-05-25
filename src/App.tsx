@@ -447,8 +447,10 @@ export default function App() {
   const fetchRecommendations = async () => {
     if (!user) return;
     setLoadingRecs(true);
-    const likedBooks = books.filter(b => b.liked);
-    const dislikedBooks = books.filter(b => b.status === 'dnf'); // Using DNF as disliked
+    // Liked = explicitly favourited OR rated 4-5 stars
+    const likedBooks = books.filter(b => b.liked || (b.rating != null && b.rating >= 4));
+    // Disliked = DNF shelved OR rated 1-2 stars
+    const dislikedBooks = books.filter(b => b.status === 'dnf' || (b.rating != null && b.rating <= 2));
     const likedAuthors = authors.filter(a => a.liked);
     const dislikedAuthors: Author[] = []; // Potential expansion later
 
