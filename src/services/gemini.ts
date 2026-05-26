@@ -11,7 +11,7 @@ export async function getBookRecommendations(likedBooks: Book[], dislikedBooks: 
     });
     return response.data;
   } catch (error) {
-    console.error("Gemini Service Error:", error);
+    console.error("Claude Service Error:", error);
     return [];
   }
 }

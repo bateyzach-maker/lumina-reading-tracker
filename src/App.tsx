@@ -1076,7 +1076,7 @@ export default function App() {
               className="text-[10px] font-bold text-neutral-600 hover:text-white uppercase tracking-widest transition-colors flex items-center gap-2 group"
             >
               <Sparkles className={`w-3.5 h-3.5 ${loadingRecs ? 'animate-spin' : 'group-hover:text-yellow-500'}`} /> 
-              {loadingRecs ? 'Analysing taste...' : 'Consult Gemini'}
+              {loadingRecs ? 'Analysing taste...' : 'Consult Claude'}
             </button>
           </div>
           
@@ -1123,7 +1123,7 @@ export default function App() {
                             authorName: rec.author,
                             status: 'want-to-read',
                             coverUrl: rec.coverUrl,
-                            notes: `Recommended by Gemini: ${rec.reason}`
+                            notes: `Recommended by Claude: ${rec.reason}`
                           } as any);
                           setIsBookModalOpen(true);
                         }}
@@ -1145,7 +1145,7 @@ export default function App() {
                   disabled={loadingRecs || books.length === 0}
                   className="text-[10px] border border-neutral-300 dark:border-neutral-700 px-8 py-3 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:border-black dark:hover:border-white transition-all uppercase tracking-[0.2em] font-bold"
                 >
-                  {loadingRecs ? 'Consulting Gemini...' : 'Activate Resonance Hub'}
+                  {loadingRecs ? 'Consulting Claude...' : 'Activate Resonance Hub'}
                 </button>
               </div>
             )}
